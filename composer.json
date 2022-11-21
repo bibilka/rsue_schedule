@@ -1,0 +1,13 @@
+{
+    "require": {
+        "irazasyed/telegram-bot-sdk": "2.0",
+        "simplehtmldom/simplehtmldom": "2.0-RC2",
+        "vlucas/phpdotenv": "^5.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Core\\": "core/"
+        }
+    }
+}
