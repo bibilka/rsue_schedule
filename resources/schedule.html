@@ -1,0 +1,17 @@
+<?php foreach ($schedule as $date => $schedule) {?>
+<b>Дата: <?= $date ?></b>
+
+<?php if (empty($schedule)) { ?>
+    На этот день занятий нет
+<?php }?>
+<?php foreach ($schedule as $item) {?>
+    <b><?= $item['lesson'] ?></b>
+    <?= $item['time'] ?> <?php if ($item['subgroup'] && $item['subgroup']!='-') {?> (<?= $item['subgroup'] ?>) <?php }?>
+
+    <?= $item['type'] ?> (<?= $item['cabinet'] ?>)
+    Группа: <?= $item['group'] ?>
+
+
+<?php } ?>
+
+<?php } ?>

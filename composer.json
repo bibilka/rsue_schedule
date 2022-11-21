@@ -2,7 +2,8 @@
     "require": {
         "irazasyed/telegram-bot-sdk": "2.0",
         "simplehtmldom/simplehtmldom": "2.0-RC2",
-        "vlucas/phpdotenv": "^5.5"
+        "vlucas/phpdotenv": "^5.5",
+        "robmorgan/phinx": "^0.13.1"
     },
     "autoload": {
         "psr-4": {

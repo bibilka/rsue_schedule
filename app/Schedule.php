@@ -2,6 +2,7 @@
 
 namespace App;
 
+use Core\Database;
 use simplehtmldom\HtmlDocument;
 
 /**
@@ -9,6 +10,13 @@ use simplehtmldom\HtmlDocument;
  */
 class Schedule
 {
+    /**
+     * Получить расписание.
+     * @param int $facultyId факультет
+     * @param int $courseId курс
+     * @param int $groupId группа
+     * @return array
+     */
     public static function get(int $facultyId, int $courseId, int $groupId)
     {
         $data = Parser::make()->schedule($facultyId, $courseId, $groupId);
@@ -36,7 +44,7 @@ class Schedule
                 for($i = 1; $i<count($dayNode->children); $i++) {
                     list($cabinet, $type) = explode(' ', preg_replace('/\s+/', ' ', trim($dayNode->children[$i]->children[3]->plaintext)));
                     $timetext = preg_replace('/\s+/', ' ', trim($dayNode->children[$i]->children[0]->plaintext));
-                    preg_match('/(\d{2}:\d{2}\s?.?\s?\d{2}:\d{2})(.*)/ui', $timetext, $matches);
+                    preg_match('/(\d{1,2}:\d{2}\s?.?\s?\d{2}:\d{2})(.*)/ui', $timetext, $matches);
                     $data[$week->plaintext][$dayOfWeek][] = [
                         'time' => trim($matches[1] ?? $timetext),
                         'subgroup' => trim(!empty($matches[2] ?? []) ? $matches[2] : '-'),
@@ -66,6 +74,7 @@ class Schedule
     }
 
     /**
+     * Найти группу по названтю.
      * @param string $groupName
      * @return array|null
      */
@@ -102,7 +111,7 @@ class Schedule
     public static function universityStruct(bool $cached = true)
     {
         if (!is_dir('cache')) mkdir('cache');
-
+        // если есть кешированные данные - возвращаем
         $cacheFile = 'cache' . DIRECTORY_SEPARATOR . 'sctruct.json';
         if ($cached && file_exists($cacheFile)) {
             return json_decode(
@@ -113,12 +122,14 @@ class Schedule
         $parser = Parser::make();
 
         $data = [];
+        // перебираем все факультеты
         foreach ($parser->faculties() as $facId => $faculty) {
             $data[$facId] = [
                 'id' => $facId,
                 'faculty' => $faculty,
                 'courses' => []
             ];
+            // все курсы
             foreach ($parser->courses($facId) as $course) {
                 $courseId = $course['kind_id'];
                 $data[$facId]['courses'][$courseId] = [
@@ -126,6 +137,7 @@ class Schedule
                     'course' => $course['kind'],
                     'groups' => []
                 ];
+                // все группы
                 foreach ($parser->groups($facId, $courseId) as $group) {
                     $groupId = $group['category_id'];
                     $data[$facId]['courses'][$courseId]['groups'][$groupId] = [
@@ -136,10 +148,83 @@ class Schedule
             }
         }
 
+        // кешируем данные
         file_put_contents(
             $cacheFile, json_encode($data)
         );
 
         return $data;
+    }
+
+    /**
+     * Получить актуальное раписание (на ближайшие 2 дня) для преподавателя.
+     * @param string $teacher фамилия преподавателя
+     * @param int $faculty ID факульетат
+     * @return array 
+     */
+    public static function getActualByTeacher(string $teacher, int $faculty = 3)
+    {
+        // $faculty = 3; // КТиИБ
+        
+        $today = new \DateTime();
+        $tomorrow = (new \DateTime())->add(new \DateInterval('P1D'));
+        $days = array( 1 => "Понедельник" , "Вторник" , "Среда" , "Четверг" , "Пятница" , "Суббота" , "Воскресенье" );
+        
+        $database = Database::getInstance();
+
+        $dates = [
+            'Сегодня' => [
+                'object' => $today,
+                'date' => $today->format('d.m.Y'),
+                'is_week_even' => $today->format("W") % 2 == 0,  // четная ли неделя
+                'day_of_week' => $days[$today->format("N")]
+            ],
+            'Завтра' => [
+                'object' => $tomorrow,
+                'date' => $tomorrow->format('d.m.Y'),
+                'is_week_even' => $tomorrow->format("W") % 2 == 0,  // четная ли неделя
+                'day_of_week' => $days[$tomorrow->format("N")]
+            ]
+        ];
+        
+        $teacherSchedule = [];
+        foreach ($dates as $dateText => $date) {
+
+            // пробуем найти расписание по дате и преподавателю в бд
+            $teacherSchedule[$date['date']] = $database->getTeacherSchedule(
+                $teacher, $date['object']->format("Y-m-d")
+            );
+
+            // если в базе данных нет расписания - парсим с сайта
+            if (empty($teacherSchedule[$date['date']])) {
+                foreach (Schedule::universityStruct()[$faculty]['courses'] as $course) {
+                    foreach ($course['groups'] as $group) {
+                        $schedule = Schedule::get($faculty, $course['id'], $group['id']);
+                  
+                        $weekkey = $date['is_week_even'] ? 'Четная неделя' : 'Нечетная неделя';
+                        foreach ($schedule[$weekkey][$date['day_of_week']] as $todaySchedule) {
+
+                            // находим пары заданного преподавателя
+                            if (mb_strpos(trim($todaySchedule['teacher']), trim($teacher)) !== false) {
+                                $todaySchedule['group'] = $group['group'];
+                                $teacherSchedule[$date['date']][] = $todaySchedule;
+                                $todaySchedule['date'] = $date['object']->format('Y-m-d');
+            
+                                // сохраняем в базу данных
+                                Database::getInstance()->saveSchedule($todaySchedule);
+                            }
+                        }
+                        
+                    }
+                }
+
+                // получаем расписание в необходимом формате
+                $teacherSchedule[$date['date']] = $database->getTeacherSchedule(
+                    $teacher, $date['object']->format("Y-m-d")
+                );
+            }
+        }
+        
+        return $teacherSchedule;
     }
 }

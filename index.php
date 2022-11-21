@@ -1,14 +1,22 @@
 <?php
 include_once 'bootstrap.php';
+die('Rsue teachers schedule');
 
 use App\Schedule;
+use Core\Database;
+use Core\Logger;
 
 $teacher = 'доц.Мирошниченко И.И.';
+$teacher = 'Веретенникова';
+$teacher = 'Полуянов';
 $faculty = 3; // КТиИБ
 
 $today = new DateTime();
 $tomorrow = (new DateTime())->add(new DateInterval('P1D'));
 $days = array( 1 => "Понедельник" , "Вторник" , "Среда" , "Четверг" , "Пятница" , "Суббота" , "Воскресенье" );
+
+dd2(Schedule::getActualByTeacher($teacher));
+dd2(Database::getInstance()->getTeacherSchedule($teacher, $today->format("Y-m-d")));
 
 $dates = [
     'Сегодня' => [
@@ -35,24 +43,29 @@ foreach (Schedule::universityStruct()[$faculty]['courses'] as $course) {
     foreach ($course['groups'] as $group) {
         $schedule = Schedule::get($faculty, $course['id'], $group['id']);
         foreach ($dates as $dateText => $date) {
-            // dd($dateText . '('.$date['date'].')');
             $weekkey = $date['is_week_even'] ? 'Четная неделя' : 'Нечетная неделя';
             foreach ($schedule[$weekkey][$date['day_of_week']] as $todaySchedule) {
-                if (trim($todaySchedule['teacher']) == trim($teacher)) {
+                if (mb_strpos(trim($todaySchedule['teacher']), trim($teacher)) !== false) {
                     $todaySchedule['group'] = $group['group'];
-                    // dd($date['date'], $todaySchedule, $teacherSchedule);
                     $teacherSchedule[$date['date']][] = $todaySchedule;
+                    $todaySchedule['date'] = (new Datetime($date['date']))->format('Y-m-d');
+                    // dd2($todaySchedule);
+                    Database::getInstance()->saveSchedule($todaySchedule);
                 }
             }
         }
     }
 }
 
-usort($teacherSchedule, function ($item1, $item2) {
-    return $item1['time'] > $item2['time'];
-});
+foreach ($teacherSchedule as $date => &$schedule) {
+    usort($schedule, function ($item1, $item2) {
+        preg_match('/\d{1,2}:\d{1,2}/', $item1['time'], $matches1);
+        preg_match('/\d{1,2}:\d{1,2}/', $item2['time'], $matches2);
+        return strtotime($matches1[0]) > strtotime($matches2[0]);
+    });
+}
 
-dd($teacherSchedule);
+dd2($teacherSchedule);
 
 // dd(Schedule::getByGroup('ИСТ-341'));
 // dd(Schedule::findGroup('ИСТ-341'));
