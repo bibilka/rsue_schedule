@@ -68,6 +68,11 @@ class Database
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Получить информацию о текущем пользователя чата из бд.
+     * @param string $chat_id
+     * @return array
+     */
     public function getChat(string $chat_id)
     {
         $query = "SELECT * FROM `users` WHERE `chat_id` = :chat_id";
