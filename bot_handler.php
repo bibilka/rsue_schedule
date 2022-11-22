@@ -15,6 +15,11 @@ try {
     // получаем введенный пользователем текст
     $text = $bot->getInputText();
 
+    if (empty(\Core\Database::getInstance()->getChat($bot->getChat())) && $text != '/start') {
+        $bot->message('Начать использование бота: /start');
+        return;
+    }
+
     if (!$text) {
         $bot->message("Отправьте текстовое сообщение.");
         return;
@@ -30,7 +35,7 @@ try {
 
     // обрабатываем несуществующую команду
     if (!method_exists($bot, $command)) {
-        $bot->message('Неизвестная команда');
+        $bot->message('Неизвестная команда. Список доступных команд: /help');
         return;
     }
     

@@ -6,6 +6,8 @@ use App\Schedule;
 use Core\Database;
 use Core\Logger;
 
+// dd2();
+
 $teacher = 'доц.Мирошниченко И.И.';
 $teacher = 'Веретенникова';
 $teacher = 'Полуянов';

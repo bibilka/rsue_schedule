@@ -68,6 +68,15 @@ class Database
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
+    public function getChat(string $chat_id)
+    {
+        $query = "SELECT * FROM `users` WHERE `chat_id` = :chat_id";
+        $params = compact('chat_id');
+        $stmt = $this->dbh->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?? [];
+    }
+
     /**
      * добавить нового пользователя.
      * @param string $chat_id
@@ -88,10 +97,24 @@ class Database
      * @param string $name
      * @return bool
      */
-    public function updateUser(string $chat_id, string $name) : bool
+    public function updateUsername(string $chat_id, string $name) : bool
     {
         $query = "UPDATE `users` SET `name` = :name WHERE `chat_id` = :chat_id";
         $params = [':chat_id' => $chat_id, ':name' => $name];
+        $stmt = $this->dbh->prepare($query);
+        return $stmt->execute($params);
+    }
+
+    /**
+     * Обновить факультет для пользователя в указанном чате.
+     * @param string $chat_id
+     * @param string $faculty
+     * @return bool
+     */
+    public function updateUserFaculty(string $chat_id, string $faculty) : bool
+    {
+        $query = "UPDATE `users` SET `faculty` = :faculty WHERE `chat_id` = :chat_id";
+        $params = [':chat_id' => $chat_id, ':faculty' => $faculty];
         $stmt = $this->dbh->prepare($query);
         return $stmt->execute($params);
     }
@@ -120,7 +143,7 @@ class Database
         $params = compact('chat_id');
         $stmt = $this->dbh->prepare($query);
         $stmt->execute($params);
-        return $stmt->fetchColumn();
+        return $stmt->fetchColumn() ?? '';
     }
 
     /**
@@ -130,14 +153,25 @@ class Database
      */
     public function getName(string $chat_id) : string
     {
-        /**
-         * @todo: лучше заменить на метод получения всей информации по чату
-         */
         $query = "SELECT `name` FROM `users` WHERE `chat_id` = :chat_id";
         $params = compact('chat_id');
         $stmt = $this->dbh->prepare($query);
         $stmt->execute($params);
-        return $stmt->fetchColumn();
+        return $stmt->fetchColumn() ?? '';
+    }
+
+    /**
+     * Получить факультет текущего пользователя в чате.
+     * @param string $chat_id
+     * @return string
+     */
+    public function getFaculty(string $chat_id) : string
+    {
+        $query = "SELECT `faculty` FROM `users` WHERE `chat_id` = :chat_id";
+        $params = compact('chat_id');
+        $stmt = $this->dbh->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchColumn() ?? '';
     }
 
     /**

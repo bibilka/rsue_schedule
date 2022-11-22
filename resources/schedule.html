@@ -1,5 +1,5 @@
 <?php foreach ($schedule as $date => $schedule) {?>
-<b>Дата: <?= $date ?></b>
+<?php echo $today == $date ? "<b>Сегодня: ". $date."</b>" : "<b>Завтра: ". $date."</b>"; ?>
 
 <?php if (empty($schedule)) { ?>
     На этот день занятий нет

@@ -25,6 +25,7 @@ final class CreateUsersTable extends AbstractMigration
         $table = $this->table('users');
         $table->addColumn('chat_id', 'string')
             ->addColumn('name', 'string')
+            ->addColumn('faculty', 'integer')
             ->addColumn('current_command', 'string')
             ->addIndex(['chat_id'], [
                 'unique' => true,

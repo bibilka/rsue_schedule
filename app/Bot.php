@@ -4,6 +4,7 @@ namespace App;
 
 use Core\Database;
 use Core\Logger;
+use DateTime;
 use Telegram\Bot\Api;
 
 /**
@@ -29,7 +30,7 @@ class Bot
     /**
      * @var array Пользовательское меню
      */
-    protected $keyboard = [["/me", '/name'],["/schedule"]]; //Клавиатура
+    protected $keyboard = [["/help"], ["/me", '/name', '/faculty'], ["/schedule"]]; //Клавиатура
 
     /**
      * Инициаилизация объекта.
@@ -47,7 +48,6 @@ class Bot
     {
         $result = $this->getUpdates();
         $this->chat_id = $result["message"]["chat"]["id"];
-        $this->database->newUser($this->chat_id, '');
     }
 
     /**
@@ -117,15 +117,26 @@ class Bot
     }
 
     /**
+     * Отобразить меню.
+     * @param array $keyboard
+     * @param string $message
+     * @return void
+     */
+    protected function keyboard(array $keyboard, string $message = '')
+    {
+        $reply_markup = $this->telegram->replyKeyboardMarkup([ 'keyboard' => $keyboard, 'resize_keyboard' => true, 'one_time_keyboard' => false ]);
+        $this->telegram->sendMessage([ 'chat_id' => $this->chat_id, 'text' => $message, 'reply_markup' => $reply_markup ]);
+    }
+
+    /**
      * Команда /start.
      * Приветственное сообщение бота.
      * @return void
      */
     public function start()
     {
-        $reply = "Добро пожаловать в бота!";
-        $reply_markup = $this->telegram->replyKeyboardMarkup([ 'keyboard' => $this->keyboard, 'resize_keyboard' => true, 'one_time_keyboard' => false ]);
-        $this->telegram->sendMessage([ 'chat_id' => $this->chat_id, 'text' => $reply, 'reply_markup' => $reply_markup ]);
+        $this->database->newUser($this->chat_id, '');
+        $this->keyboard($this->keyboard, "Добро пожаловать в бота!");
     }
 
     /**
@@ -140,7 +151,12 @@ class Bot
             // если текущий вызов команды - ответ на предыдущий запрос
             // получаем введенный пользователем текст и сохраняем в бд
             $name = $this->getInputText();
-            $this->database->updateUser($this->chat_id, $name);
+            $this->database->updateUsername($this->chat_id, $name);
+
+            if (!$this->database->getFaculty($this->chat_id)) {
+                return $this->faculty();
+            }
+
             $this->message('Информация обновлена!');
             // сбрасываем исполнение команды
             $this->finishCommand();
@@ -159,9 +175,14 @@ class Bot
      */
     public function schedule()
     {
+        $this->message('Получение расписания, это может занять некоторое время...');
         ob_start();
         // получаем расписание
-        $schedule = Schedule::getActualByTeacher($this->database->getName($this->chat_id));
+        $schedule = Schedule::getActualByTeacher(
+            $this->database->getName($this->chat_id),
+            $this->database->getFaculty($this->chat_id)
+        );
+        $today = (new DateTime())->format('d.m.Y');
         // передаем в шаблон
         require_once __DIR__.'/../resources/schedule.html';
         $html = ob_get_clean();
@@ -178,11 +199,73 @@ class Bot
     {
         // получаем текущего пользователя по чату из базы данных
         $name = $this->database->getName($this->chat_id);
+        $faculty = $this->database->getFaculty($this->chat_id);
         if (!$name) {
             // если данных еще нет - принуждаем заполнить
             $this->message('Вы еще не заполнили свои данные.');
             return $this->name();
         }
-        return $this->message('Ваши данные: ' . $name);
+        if (!$faculty) {
+            // если данных еще нет - принуждаем заполнить
+            $this->message('Вы еще не заполнили свои данные.');
+            return $this->faculty();
+        }
+
+        $faculties = Schedule::universityStruct();
+        $facultyName = $faculties[$faculty]['faculty'];
+
+        return $this->message('Ваши данные: ' . $name . PHP_EOL . 'Факультет: ' . $facultyName);
+    }
+
+    /**
+     * Команда /help.
+     * Выводит список доступных команд и их описание.
+     * @return void
+     */
+    public function help()
+    {
+        ob_start();
+        require_once __DIR__.'/../resources/help.html';
+        $html = ob_get_clean();
+        // возвращаем html
+        return $this->html($html);
+    }
+
+    /**
+     * Команда /faculty
+     * Устанавливает факультет для пользователя.
+     * @return void
+     */
+    public function faculty()
+    {
+        $command = $this->database->getCommand($this->chat_id);
+        if (!empty(trim($command)) && $command == 'faculty') {
+            // если текущий вызов команды - ответ на предыдущий запрос
+            // получаем введенный пользователем текст и сохраняем в бд
+            $faculty = (int) filter_var($this->getInputText(), FILTER_SANITIZE_NUMBER_INT);
+            $this->database->updateUserFaculty($this->chat_id, $faculty);
+            $this->keyboard($this->keyboard, 'Информация обновлена!');
+            // сбрасываем исполнение команды
+            $this->finishCommand();
+            return;
+        }
+        // если текущий вызов - первый
+        // спрашиваем у пользователя данные и запускаем исполнение команды
+        $this->startCommand('faculty');
+
+        ob_start();
+        // получаем расписание
+        $faculties = Schedule::universityStruct();
+        $keyboard = [];
+        foreach ($faculties as $faculty) {
+            $keyboard[] = strval($faculty['id']);
+        }
+        // передаем в шаблон
+        require_once __DIR__.'/../resources/faculty_list.html';
+        $html = ob_get_clean();
+        // возвращаем html
+        $this->keyboard([$keyboard], 'Выберите ваш факультет: ');
+
+        return $this->html($html);
     }
 }
