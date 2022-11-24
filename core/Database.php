@@ -48,7 +48,7 @@ class Database
             $this->dbh = new \PDO(
                 'mysql:host='.config("DB_HOST", '127.0.0.1').';dbname='.config("DB_NAME", 'rsue_schedule'),
                 config("DB_USER", 'root'),
-                config("DB_PASSOWRD", '')
+                config("DB_PASSWORD", '')
             );
         } catch (\PDOException $e) {
             $message = "Error!: " . $e->getMessage();
