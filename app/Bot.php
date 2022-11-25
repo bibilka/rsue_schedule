@@ -175,7 +175,12 @@ class Bot
      */
     public function schedule()
     {
-        /** @todo: добавить проверку на то что юзер не заполнил данные */
+        if (!$this->database->getName($this->chat_id)) {
+            $this->name();
+        }
+        if (!$this->database->getFaculty($this->chat_id)) {
+            $this->faculty();
+        }
         $this->message('Получение расписания, это может занять некоторое время...');
         ob_start();
         // получаем расписание
