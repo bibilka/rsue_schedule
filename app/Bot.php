@@ -176,10 +176,10 @@ class Bot
     public function schedule()
     {
         if (!$this->database->getName($this->chat_id)) {
-            $this->name();
+            return $this->name();
         }
         if (!$this->database->getFaculty($this->chat_id)) {
-            $this->faculty();
+            return $this->faculty();
         }
         $this->message('Получение расписания, это может занять некоторое время...');
         ob_start();
